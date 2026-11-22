@@ -1,0 +1,184 @@
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Minha Biblioteca</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f5f9;
+            margin: 0;
+            padding: 30px;
+        }
+        main {
+            max-width: 850px;
+            margin: auto;
+        }
+        h1 { color: #29365c; }
+        section {
+            background: white;
+            padding: 24px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px #00000012;
+        }
+        input, button {
+            padding: 12px;
+            margin: 6px 0;
+            box-sizing: border-box;
+        }
+        input {
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        button {
+            background: #354c91;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        #mensagem { font-weight: bold; }
+    </style>
+</head>
+<body>
+<main>
+    <h1>📚 Minha Biblioteca</h1>
+    <p>Sistema de cadastro e consulta de livros</p>
+
+    <section>
+        <h2>Cadastrar livro</h2>
+        <form id="formLivro">
+            <input id="titulo" placeholder="Título" required maxlength="150">
+            <input id="autor" placeholder="Autor" required maxlength="100">
+            <input id="ano" type="number" placeholder="Ano de publicação">
+            <input id="isbn" placeholder="ISBN" maxlength="20">
+            <button type="submit">Cadastrar livro</button>
+        </form>
+        <p id="mensagem"></p>
+    </section>
+
+    <section>
+        <h2>Livros cadastrados</h2>
+        <button type="button" onclick="listarLivros()">Atualizar lista</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Título</th>
+                    <th>Autor</th>
+                    <th>Ano</th>
+                    <th>ISBN</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="listaLivros"></tbody>
+        </table>
+    </section>
+</main>
+
+<script>
+    async function listarLivros() {
+        const lista = document.getElementById("listaLivros");
+        try {
+            const resposta = await fetch("/livros");
+            if (!resposta.ok) throw new Error("Erro ao consultar livros");
+
+            const livros = await resposta.json();
+            lista.replaceChildren();
+
+            for (const livro of livros) {
+                const linha = document.createElement("tr");
+                for (const campo of ["id", "titulo", "autor", "ano_publicacao", "isbn"]) {
+                    const celula = document.createElement("td");
+                    celula.textContent = livro[campo] ?? "";
+                    linha.appendChild(celula);
+                }
+
+                const acoes = document.createElement("td");
+                const botao = document.createElement("button");
+
+                botao.textContent = "Excluir";
+                botao.style.background = "#c0392b";
+
+                botao.addEventListener("click", async () => {
+                    const confirmar = confirm(
+                        "Deseja realmente excluir o livro: " + livro.titulo + "?"
+                    );
+
+                    if (!confirmar) return;
+
+                    try {
+                        const resposta = await fetch(
+                            "/excluir-livro/" + livro.id,
+                            { method: "DELETE" }
+                        );
+
+                        if (!resposta.ok) {
+                            throw new Error("Erro ao excluir livro");
+                        }
+
+                        document.getElementById("mensagem").textContent =
+                            "Livro excluído com sucesso!";
+
+                        await listarLivros();
+                    } catch (erro) {
+                        alert(erro.message);
+                    }
+                });
+
+                acoes.appendChild(botao);
+                linha.appendChild(acoes);
+                lista.appendChild(linha);
+            }
+        } catch (erro) {
+            document.getElementById("mensagem").textContent = erro.message;
+        }
+    }
+
+    document.getElementById("formLivro").addEventListener("submit", async function(evento) {
+        evento.preventDefault();
+
+        const livro = {
+            titulo: document.getElementById("titulo").value,
+            autor: document.getElementById("autor").value,
+            ano_publicacao: Number(document.getElementById("ano").value) || 0,
+            isbn: document.getElementById("isbn").value
+        };
+
+        const mensagem = document.getElementById("mensagem");
+
+        try {
+            const resposta = await fetch("/cadastrar-livro", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(livro)
+            });
+
+            if (!resposta.ok) throw new Error("Não foi possível cadastrar o livro");
+
+            mensagem.textContent = "Livro cadastrado com sucesso!";
+            this.reset();
+            await listarLivros();
+        } catch (erro) {
+            mensagem.textContent = erro.message;
+        }
+    });
+
+    listarLivros();
+</script>
+</body>
+</html>
+
